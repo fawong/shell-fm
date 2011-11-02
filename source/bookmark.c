@@ -109,7 +109,7 @@ char * getmark(int n) {
 }
 
 /* Prompt for user specific bookmark number */
-char * promptmark() {
+int promptmarknumber() {
 	char * number = NULL;
 
 	struct prompt prompt = {
@@ -119,7 +119,12 @@ char * promptmark() {
 		.callback = NULL,
 	};
 	number = readline(& prompt);
-	return getmark(atoi(number));
+
+  if (number == NULL || * number == '\0' || isspace(* number)) {
+    return -1;
+  } else {
+	  return atoi(number);
+  }
 }
 
 void printmarks(void) {

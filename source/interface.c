@@ -183,15 +183,15 @@ void handle_keyboard_input() {
 
 		case 'H':
 			if(playfork && current_station) {
-                                char * number;
-	                        struct prompt prompt = {
-	                        	.prompt = "Number you want to bookmark this stream as: ",
-	                        	.line = NULL,
-	                        	.history = NULL,
-	                        	.callback = NULL,
-	                        };
-                                number = readline(& prompt);
-                                setmark(current_station, atoi(number));
+        char * number;
+        struct prompt prompt = {
+        	.prompt = "Number you want to bookmark this stream as: ",
+        	.line = NULL,
+        	.history = NULL,
+        	.callback = NULL,
+        };
+        number = readline(& prompt);
+        setmark(current_station, atoi(number));
 			}
 			break;
 
@@ -241,6 +241,11 @@ void handle_keyboard_input() {
 
 		case 'm':
 			mute();
+      if (muted) {
+        puts("Muted.");
+      } else {
+        puts("Unmuted.");
+      }
 			break;
 
 		case 'u':
@@ -274,13 +279,20 @@ void handle_keyboard_input() {
 			break;
 
 		case 'b':
-			if ((marked = promptmark())) {
-                                station(marked);
-	        		free(marked);
-                        } else {
-                                puts ("Bookmark not defined.");
-                        }
-			break;
+      {
+        int number = promptmarknumber();
+  			if (number != -1) {
+          if ((marked = getmark(number))) {
+            station(marked);
+  	        free(marked);
+          } else {
+            puts ("Bookmark not defined.");
+          }
+        } else {
+          puts("No bookmark selected.");
+        }
+        break;
+      }
 
 		case 'C': /* Reload configuration. */
 			settings(rcpath("shell-fm.rc"), 0);
