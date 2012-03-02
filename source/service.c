@@ -1,6 +1,6 @@
 /*
-	Copyright (C) 2006 by Jonas Kramer
-	Published under the terms of the GNU General Public License (GPL).
+  Copyright (C) 2006 by Jonas Kramer
+  Published under the terms of the GNU General Public License (GPL).
 */
 
 #define _GNU_SOURCE
@@ -40,287 +40,287 @@ char * current_station = NULL;
 #define HTTP_STATION_PREFIX "http://www.last.fm/listen/"
 
 int authenticate(const char * username, const char * password) {
-	const unsigned char * md5;
-	char hexmd5[32 + 1] = { 0 }, url[512] = { 0 }, ** response;
-	char * encuser = NULL;
-	unsigned ndigit, i = 0;
-	const char * session, * fmt =
-		"http://ws.audioscrobbler.com/radio/handshake.php"
-		"?version=0.1"
-		"&platform=linux"
-		"&username=%s"
-		"&passwordmd5=%s"
-		"&debug=0"
-		"&language=en";
+  const unsigned char * md5;
+  char hexmd5[32 + 1] = { 0 }, url[512] = { 0 }, ** response;
+  char * encuser = NULL;
+  unsigned ndigit, i = 0;
+  const char * session, * fmt =
+    "http://ws.audioscrobbler.com/radio/handshake.php"
+    "?version=0.1"
+    "&platform=linux"
+    "&username=%s"
+    "&passwordmd5=%s"
+    "&debug=0"
+    "&language=en";
 
-	memset(& data, 0, sizeof(struct hash));
+  memset(& data, 0, sizeof(struct hash));
 
-	/* create the hash, then convert to ASCII */
-	md5 = MD5((const unsigned char *) password, strlen(password));
-	for(ndigit = 0; ndigit < 16; ++ndigit)
-		sprintf(2 * ndigit + hexmd5, "%02x", md5[ndigit]);
+  /* create the hash, then convert to ASCII */
+  md5 = MD5((const unsigned char *) password, strlen(password));
+  for(ndigit = 0; ndigit < 16; ++ndigit)
+    sprintf(2 * ndigit + hexmd5, "%02x", md5[ndigit]);
 
-	set(& rc, "password", hexmd5);
+  set(& rc, "password", hexmd5);
 
-	/* escape username for URL */
-	encode(username, & encuser);
+  /* escape username for URL */
+  encode(username, & encuser);
 
-	/* put handshake URL together and fetch initial data from server */
-	snprintf(url, sizeof(url), fmt, encuser, hexmd5);
-	free(encuser);
+  /* put handshake URL together and fetch initial data from server */
+  snprintf(url, sizeof(url), fmt, encuser, hexmd5);
+  free(encuser);
 
-	response = fetch(url, NULL, NULL, NULL);
-	if(!response) {
-		fputs("No response.\n", stderr);
-		return 0;
-	}
+  response = fetch(url, NULL, NULL, NULL);
+  if(!response) {
+    fputs("No response.\n", stderr);
+    return 0;
+  }
 
-	while(response[i]) {
-		char key[64] = { 0 }, val[256] = { 0 };
-		sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
-		set(& data, key, val);
-		free(response[i++]);
-	}
-	free(response);
+  while(response[i]) {
+    char key[64] = { 0 }, val[256] = { 0 };
+    sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
+    set(& data, key, val);
+    free(response[i++]);
+  }
+  free(response);
 
-	session = value(& data, "session");
-	if(!session || !strcmp(session, "FAILED")) {
-		fputs("Authentication failed.\n", stderr);
-		unset(& data, "session");
-		return 0;
-	}
+  session = value(& data, "session");
+  if(!session || !strcmp(session, "FAILED")) {
+    fputs("Authentication failed.\n", stderr);
+    unset(& data, "session");
+    return 0;
+  }
 
-	return !0;
+  return !0;
 }
 
 
 int station(const char * stationURL) {
-	char url[512] = { 0 }, * encodedURL = NULL, ** response, name[512], * completeURL;
-	unsigned i = 0, retval = !0, regular = !0;
-	const char * fmt;	
-	const char * types[4] = {"play", "preview", "track", "playlist"};
+  char url[512] = { 0 }, * encodedURL = NULL, ** response, name[512], * completeURL;
+  unsigned i = 0, retval = !0, regular = !0;
+  const char * fmt; 
+  const char * types[4] = {"play", "preview", "track", "playlist"};
 
-	delayquit = 0;
+  delayquit = 0;
 
-	if(playfork && haskey(& rc, "delay-change")) {
-		if(nextstation) {
-			/*
-			  Cancel station change if url is empty or equal to the current
-			  station.
-			*/
-			free(nextstation);
-			nextstation = NULL;
+  if(playfork && haskey(& rc, "delay-change")) {
+    if(nextstation) {
+      /*
+        Cancel station change if url is empty or equal to the current
+        station.
+      */
+      free(nextstation);
+      nextstation = NULL;
 
-			if(!strlen(stationURL) || !strcmp(stationURL, current_station)) {
-				puts("Station change cancelled.");
-				return 0;
-			}
-		}
+      if(!strlen(stationURL) || !strcmp(stationURL, current_station)) {
+        puts("Station change cancelled.");
+        return 0;
+      }
+    }
 
-		/* Do nothing if the station is already played. */
-		else if(current_station && !strcmp(current_station, stationURL)) {
-			return 0;
-		}
+    /* Do nothing if the station is already played. */
+    else if(current_station && !strcmp(current_station, stationURL)) {
+      return 0;
+    }
 
-		/* Do nothing if the station URL is empty. */
-		else if(!strlen(stationURL)) {
-			return 0;
-		}
+    /* Do nothing if the station URL is empty. */
+    else if(!strlen(stationURL)) {
+      return 0;
+    }
 
-		puts("\rDelayed.");
-		nextstation = strdup(stationURL);
+    puts("\rDelayed.");
+    nextstation = strdup(stationURL);
 
-		return 0;
-	}
+    return 0;
+  }
 
-	/* Do nothing if the station is already played. */
-	else if(current_station && !strcmp(current_station, stationURL)) {
-		return 0;
-	}
+  /* Do nothing if the station is already played. */
+  else if(current_station && !strcmp(current_station, stationURL)) {
+    return 0;
+  }
 
-	freelist(& playlist);
+  freelist(& playlist);
 
-	if(!haskey(& data, "session")) {
-		fputs("Not authenticated, yet.\n", stderr);
-		return 0;
-	}
+  if(!haskey(& data, "session")) {
+    fputs("Not authenticated, yet.\n", stderr);
+    return 0;
+  }
 
-        if(!strncmp(HTTP_STATION_PREFIX, stationURL, strlen(HTTP_STATION_PREFIX))) {
-                stationURL += strlen(HTTP_STATION_PREFIX);
-        }
+  if(!strncmp(HTTP_STATION_PREFIX, stationURL, strlen(HTTP_STATION_PREFIX))) {
+    stationURL += strlen(HTTP_STATION_PREFIX);
+  }
 
-	if(!stationURL || !strlen(stationURL))
-		return 0;
+  if(!stationURL || !strlen(stationURL))
+    return 0;
 
-	if(!strncasecmp(stationURL, "lastfm://", 9)) {
-		completeURL = strdup(stationURL);
-		stationURL += 9;
-	}
-	else {
-		int size = strlen(stationURL) + 10;
-		completeURL = malloc(size);
-		snprintf(completeURL, size, "lastfm://%s", stationURL);
-	}
+  if(!strncasecmp(stationURL, "lastfm://", 9)) {
+    completeURL = strdup(stationURL);
+    stationURL += 9;
+  }
+  else {
+    int size = strlen(stationURL) + 10;
+    completeURL = malloc(size);
+    snprintf(completeURL, size, "lastfm://%s", stationURL);
+  }
 
-	/* Check if it's a static playlist of tracks or track previews. */
-	for(i = 0; i < 4; ++i)
-		if(!strncasecmp(types[i], stationURL, strlen(types[i]))) {
-			regular = 0;
-			break;
-		}
+  /* Check if it's a static playlist of tracks or track previews. */
+  for(i = 0; i < 4; ++i)
+    if(!strncasecmp(types[i], stationURL, strlen(types[i]))) {
+      regular = 0;
+      break;
+    }
 
-	/*
-	   If this is not a special "one-time" stream, it's a regular radio
-	   station and we request it using the good old /adjust.php URL.
-	   If it's not a regular stream, the reply of this request already is
-	   a XSPF playlist we have to parse.
+  /*
+     If this is not a special "one-time" stream, it's a regular radio
+     station and we request it using the good old /adjust.php URL.
+     If it's not a regular stream, the reply of this request already is
+     a XSPF playlist we have to parse.
    */
-	if(regular) {
-		fmt = "http://ws.audioscrobbler.com/radio/adjust.php?session=%s&url=%s";
-	}
-	else {
-		fmt =
-			"http://ws.audioscrobbler.com/1.0/webclient/getresourceplaylist.php"
-			"?sk=%s&url=%s&desktop=1";
-	}
+  if(regular) {
+    fmt = "http://ws.audioscrobbler.com/radio/adjust.php?session=%s&url=%s";
+  }
+  else {
+    fmt =
+      "http://ws.audioscrobbler.com/1.0/webclient/getresourceplaylist.php"
+      "?sk=%s&url=%s&desktop=1";
+  }
 
-	encode(completeURL, & encodedURL);
-	snprintf(url, sizeof(url), fmt, value(& data, "session"), encodedURL);
+  encode(completeURL, & encodedURL);
+  snprintf(url, sizeof(url), fmt, value(& data, "session"), encodedURL);
 
-	free(encodedURL);
-	free(completeURL);
+  free(encodedURL);
+  free(completeURL);
 
-	if(!(response = fetch(url, NULL, NULL, NULL)))
-		return 0;
+  if(!(response = fetch(url, NULL, NULL, NULL)))
+    return 0;
 
-	if(regular) {
-		for(i = 0; response[i]; ++i) {
-			char status[64] = { 0 };
+  if(regular) {
+    for(i = 0; response[i]; ++i) {
+      char status[64] = { 0 };
 
-			if(sscanf(response[i], "response=%63[^\r\n]", status) > 0)
-				if(!strncmp(status, "FAILED", 6))
-					retval = 0;
+      if(sscanf(response[i], "response=%63[^\r\n]", status) > 0)
+        if(!strncmp(status, "FAILED", 6))
+          retval = 0;
 
-			if(sscanf(response[i], "stationname=%127[^\r\n]", name) > 0) {
-				if(playlist.title != NULL)
-					free(playlist.title);
+      if(sscanf(response[i], "stationname=%127[^\r\n]", name) > 0) {
+        if(playlist.title != NULL)
+          free(playlist.title);
 
-				decode(name, & playlist.title);
-				unhtml(playlist.title);
-			}
-		}
+        decode(name, & playlist.title);
+        unhtml(playlist.title);
+      }
+    }
 
-		purge(response);
-		response = NULL;
+    purge(response);
+    response = NULL;
 
-		if(!retval) {
-			printf("Sorry, couldn't set station to %s.\n", stationURL);
-			return 0;
-		}
+    if(!retval) {
+      printf("Sorry, couldn't set station to %s.\n", stationURL);
+      return 0;
+    }
 
-		expand(& playlist);
-	}
-	else {
-		char * xml = join(response, 0);
+    expand(& playlist);
+  }
+  else {
+    char * xml = join(response, 0);
 
-		response = NULL;
+    response = NULL;
 
-		freelist(& playlist);
+    freelist(& playlist);
 
-		if(!parsexspf(& playlist, xml))
-			retval = 0;
+    if(!parsexspf(& playlist, xml))
+      retval = 0;
 
-		free(xml);
-	}
+    free(xml);
+  }
 
-	enable(CHANGED);
-	histapp(stationURL);
+  enable(CHANGED);
+  histapp(stationURL);
 
-	if(current_station)
-		free(current_station);
+  if(current_station)
+    free(current_station);
 
-	current_station = strdup(stationURL);
-	assert(current_station != NULL);
+  current_station = strdup(stationURL);
+  assert(current_station != NULL);
 
-	if(retval && playfork) {
-		enable(INTERRUPTED);
-		kill(playfork, SIGUSR1);
-	}
+  if(retval && playfork) {
+    enable(INTERRUPTED);
+    kill(playfork, SIGUSR1);
+  }
 
-	return retval;
+  return retval;
 }
 
 
 /*
-	Takes pointer to a playlist, forks off a playback process and tries to play
-	the next track in the playlist. If there's already a playback process, it's
-	killed first (which means the currently played track is skipped).
+  Takes pointer to a playlist, forks off a playback process and tries to play
+  the next track in the playlist. If there's already a playback process, it's
+  killed first (which means the currently played track is skipped).
 */
 int play(struct playlist * list) {
-	unsigned i;
-	int pipefd[2];
-	char * keys [] = {
-		"creator", "title", "album", "duration", "station",
-		"lastfm:trackauth", "trackpage", "artistpage", "albumpage",
-		"image", "freeTrackURL",
-	};
+  unsigned i;
+  int pipefd[2];
+  char * keys [] = {
+    "creator", "title", "album", "duration", "station",
+    "lastfm:trackauth", "trackpage", "artistpage", "albumpage",
+    "image", "freeTrackURL",
+  };
 
-	assert(list != NULL);
+  assert(list != NULL);
 
-	if(!list->left)
-		return 0;
+  if(!list->left)
+    return 0;
 
-	if(playfork) {
-		kill(playfork, SIGUSR1);
-		return !0;
-	}
+  if(playfork) {
+    kill(playfork, SIGUSR1);
+    return !0;
+  }
 
-	enable(QUIET);
+  enable(QUIET);
 
-	empty(& track);
+  empty(& track);
 
-	for(i = 0; i < (sizeof(keys) / sizeof(char *)); ++i)
-		set(& track, keys[i], value(& list->track->track, keys[i]));
+  for(i = 0; i < (sizeof(keys) / sizeof(char *)); ++i)
+    set(& track, keys[i], value(& list->track->track, keys[i]));
 
-	if(pipe(pipefd) != 0)
-		return !0;
+  if(pipe(pipefd) != 0)
+    return !0;
 
-	playfork = fork();
+  playfork = fork();
 
-	if(!playfork) {
-		FILE * fd = NULL;
-		const char * location = value(& list->track->track, "location");
+  if(!playfork) {
+    FILE * fd = NULL;
+    const char * location = value(& list->track->track, "location");
 
-		close(pipefd[1]);
-		rmsckif();
+    close(pipefd[1]);
+    rmsckif();
 
-		subfork = 0;
+    subfork = 0;
 
-		if(location != NULL) {
-			fetch(location, & fd, NULL, NULL);
+    if(location != NULL) {
+      fetch(location, & fd, NULL, NULL);
 
-			if(fd != NULL) {
-				/*
-					If there was an error, tell the main process about it by
-					sending SIGUSR2.
-				*/
-				if(!playback(fd, pipefd[0]))
-					kill(getppid(), SIGUSR2);
+      if(fd != NULL) {
+        /*
+          If there was an error, tell the main process about it by
+          sending SIGUSR2.
+        */
+        if(!playback(fd, pipefd[0]))
+          kill(getppid(), SIGUSR2);
 
-				close(pipefd[0]);
-				fshutdown(& fd);
-			}
-		}
+        close(pipefd[0]);
+        fshutdown(& fd);
+      }
+    }
 
-		exit(EXIT_SUCCESS);
-	}
+    exit(EXIT_SUCCESS);
+  }
 
-	close(pipefd[0]);
+  close(pipefd[0]);
 
-	if(playpipe != 0)
-		close(playpipe);
+  if(playpipe != 0)
+    close(playpipe);
 
-	playpipe = pipefd[1];
+  playpipe = pipefd[1];
 
-	return !0;
+  return !0;
 }

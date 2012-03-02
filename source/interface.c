@@ -260,20 +260,13 @@ void handle_keyboard_input() {
 			print_help();
 			break;
 
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			if((marked = getmark(key - 0x30))) {
+		case 'g':
+			key = fetchkey(1000000);
+			if((marked = getmark(key))) {
 				station(marked);
 				free(marked);
-			} else {
+			}
+			else {
 				puts("Bookmark not defined.");
 			}
 			break;
@@ -639,7 +632,7 @@ void print_help(void) {
 		"T = tag track/artist/album        | u = show upcoming tracks in playlist\n"
 		"U = unlove track                  | = = increase volume\n"
 		"- = decrease volume               | C = reload configuration\n"
-		"m = mute/unmute                   | b = choose bookmark\n",
+		"m = mute/unmute                   | g = goto bookmark\n",
 		stderr
 	);
 
