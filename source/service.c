@@ -39,58 +39,65 @@ char * current_station = NULL;
 
 #define HTTP_STATION_PREFIX "http://www.last.fm/listen/"
 
-int authenticate(const char * username, const char * password) {
-  const unsigned char * md5;
-  char hexmd5[32 + 1] = { 0 }, url[512] = { 0 }, ** response;
-  char * encuser = NULL;
-  unsigned ndigit, i = 0;
-  const char * session, * fmt =
-    "http://ws.audioscrobbler.com/radio/handshake.php"
-    "?version=0.1"
-    "&platform=linux"
-    "&username=%s"
-    "&passwordmd5=%s"
-    "&debug=0"
-    "&language=en";
+int authenticate_plaintext(const char * username, const char * password) {
+	const unsigned char * md5;
+	char hexmd5[32 + 1] = { 0 };
+	unsigned ndigit;
 
-  memset(& data, 0, sizeof(struct hash));
+	/* create the hash, then convert to ASCII */
+	md5 = MD5((const unsigned char *) password, strlen(password));
+	for(ndigit = 0; ndigit < 16; ++ndigit)
+		sprintf(2 * ndigit + hexmd5, "%02x", md5[ndigit]);
 
-  /* create the hash, then convert to ASCII */
-  md5 = MD5((const unsigned char *) password, strlen(password));
-  for(ndigit = 0; ndigit < 16; ++ndigit)
-    sprintf(2 * ndigit + hexmd5, "%02x", md5[ndigit]);
+	return authenticate(username, hexmd5);
+}
 
-  set(& rc, "password", hexmd5);
+int authenticate(const char * username, const char * passwordmd5) {
+	char url[512] = { 0 }, ** response;
+	char * encuser = NULL;
+	unsigned i = 0;
+	const char * session, * fmt =
+		"http://ws.audioscrobbler.com/radio/handshake.php"
+		"?version=0.1"
+		"&platform=linux"
+		"&username=%s"
+		"&passwordmd5=%s"
+		"&debug=0"
+		"&language=en";
 
-  /* escape username for URL */
-  encode(username, & encuser);
+	memset(& data, 0, sizeof(struct hash));
 
-  /* put handshake URL together and fetch initial data from server */
-  snprintf(url, sizeof(url), fmt, encuser, hexmd5);
-  free(encuser);
+	set(& rc, "password", passwordmd5);
 
-  response = fetch(url, NULL, NULL, NULL);
-  if(!response) {
-    fputs("No response.\n", stderr);
-    return 0;
-  }
+	/* escape username for URL */
+	encode(username, & encuser);
 
-  while(response[i]) {
-    char key[64] = { 0 }, val[256] = { 0 };
-    sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
-    set(& data, key, val);
-    free(response[i++]);
-  }
-  free(response);
+	/* put handshake URL together and fetch initial data from server */
+	snprintf(url, sizeof(url), fmt, encuser, passwordmd5);
+	free(encuser);
 
-  session = value(& data, "session");
-  if(!session || !strcmp(session, "FAILED")) {
-    fputs("Authentication failed.\n", stderr);
-    unset(& data, "session");
-    return 0;
-  }
+	response = fetch(url, NULL, NULL, NULL);
+	if(!response) {
+		fputs("No response.\n", stderr);
+		return 0;
+	}
 
-  return !0;
+	while(response[i]) {
+		char key[64] = { 0 }, val[256] = { 0 };
+		sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
+		set(& data, key, val);
+		free(response[i++]);
+	}
+	free(response);
+
+	session = value(& data, "session");
+	if(!session || !strcmp(session, "FAILED")) {
+		fputs("Authentication failed.\n", stderr);
+		unset(& data, "session");
+		return 0;
+	}
+
+	return !0;
 }
 
 

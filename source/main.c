@@ -217,9 +217,9 @@ int main(int argc, char ** argv) {
   }
 
 
-  /* Ask for username/password if they weren't specified in the .rc file. */
-  if(!haskey(& rc, "password")) {
-    char * password;
+	/* Ask for username/password if they weren't specified in the .rc file. */
+	if(!haskey(& rc, "password") && !haskey(& rc, "password-md5")) {
+		char * password;
 
     if(!haskey(& rc, "username")) {
                         char * username;
@@ -268,304 +268,309 @@ int main(int argc, char ** argv) {
     if(pid > 0)
       exit(EXIT_SUCCESS);
 
-    /* Close stdin out and err */
-    close(0);
-    close(1);
-    close(2);
+		if(pid > 0)
+			exit(EXIT_SUCCESS);
 
-    /* Redirect stdin and out to /dev/null */
-    null = open("/dev/null", O_RDWR);
-    dup(null);
-    dup(null);
-  }
+		/* Close stdin out and err */
+		close(0);
+		close(1);
+		close(2);
 
-  ppid = getpid();
+		/* Redirect  stdin and out to /dev/null */
+		null = open("/dev/null", O_RDWR);
+		dup(null);
+		dup(null);
+	}
 
-  atexit(cleanup);
-  loadqueue(!0);
+	ppid = getpid();
 
-  /* Set up signal handlers for communication with the playback process. */
-  signal(SIGINT, forcequit);
+	atexit(cleanup);
+	loadqueue(!0);
 
-  /* SIGUSR2 from playfork means it detected an error. */
-  signal(SIGUSR2, playsig);
+	/* Set up signal handlers for communication with the playback process. */
+	signal(SIGINT, forcequit);
 
-  /* Catch SIGTSTP to set pausetime when user suspends us with ^Z. */
-  signal(SIGTSTP, stopsig);
+	/* SIGUSR2 from playfork means it detected an error. */
+	signal(SIGUSR2, playsig);
 
-
-  /* Authenticate to the Last.FM server. */
-  if(!authenticate(value(& rc, "username"), value(& rc, "password")))
-    exit(EXIT_FAILURE);
-
-  /* Store session key for use by external tools. */
-  if(haskey(& data, "session")) {
-    FILE * fd = fopen(rcpath("session"), "w");
-    if(fd) {
-      fprintf(fd, "%s\n", value(& data, "session"));
-      fclose(fd);
-    }
-  }
-
-  if(!background) {
-    struct input keyboard = { 0, KEYBOARD };
-    register_handle(keyboard);
-    canon(0);
-    atexit(cleanup_term);
-  }
+	/* Catch SIGTSTP to set pausetime when user suspends us with ^Z. */
+	signal(SIGTSTP, stopsig);
 
 
-  /* Play default radio, if specified. */
-  if(haskey(& rc, "default-radio")) {
-    if(!strcmp(value(& rc, "default-radio"), "last")) {
-      char ** history = load_history(), * last = NULL, ** p;
+	/* Authenticate to the Last.FM server. */
+	if(haskey(& rc, "password-md5") && !authenticate(value(& rc, "username"), value(& rc, "password-md5")))
+		exit(EXIT_FAILURE);
+	else if (!haskey(& rc, "password-md5") && !authenticate_plaintext(value(& rc, "username"), value(& rc, "password")))
+		exit(EXIT_FAILURE);
 
-      for(p = history; * p != NULL; ++p) {
-        last = * p;
-      }
+	/* Store session key for use by external tools. */
+	if(haskey(& data, "session")) {
+		FILE * fd = fopen(rcpath("session"), "w");
+		if(fd) {
+			fprintf(fd, "%s\n", value(& data, "session"));
+			fclose(fd);
+		}
+	}
 
-      set(& rc, "default-radio", last);
-      purge(history);
-    }
-
-    station(value(& rc, "default-radio"));
-  }
-
-  else if(!background)
-    radioprompt("radio url> ");
-
-  /* The main loop. */
-  while(!0) {
-    pid_t child;
-    int status, playnext = 0;
-
-    /* Check if anything died (submissions fork or playback fork). */
-    while((child = waitpid(-1, & status, WNOHANG | WUNTRACED | WCONTINUED)) > 0) {
-      if(child == subfork)
-        subdead(WEXITSTATUS(status));
-      else if(child == playfork) {
-        if(WIFSTOPPED(status)) {
-          /* time(& pausetime); */
-        }
-        else {
-          if(WIFCONTINUED(status)) {
-            signal(SIGTSTP, stopsig);
-            if(pausetime != 0) {
-              pauselength += time(NULL) - pausetime;
-            }
-          }
-          else {
-            playnext = !0;
-            unlinknp();
-
-            if(delayquit) {
-              quit();
-            }
-          }
-          pausetime = 0;
-        }
-      }
-    }
-
-    /*
-      Check if the playback process died. If so, submit the data
-      of the last played track. Then check if there are tracks left
-      in the playlist; if not, try to refresh the list and stop the
-      stream if there are no new tracks to fetch.
-      Also handle user stopping the stream here.  We need to check for
-      playnext != 0 before handling enabled(STOPPED) anyway, otherwise
-      playfork would still be running.
-    */
-    if(playnext) {
-      playfork = 0;
-
-      if(enabled(RTP)) {
-        unsigned duration, played, minimum;
-
-        duration = atoi(value(& track, "duration"));
-        played = time(NULL) - change_time - pauselength;
-
-        /* Allow user to specify minimum playback length (min. 50%). */
-        if(haskey(& rc, "minimum")) {
-          unsigned percent = atoi(value(& rc, "minimum"));
-          if(percent < 50)
-            percent = 50;
-          minimum = duration * percent / 100;
-        }
-        else {
-          minimum = duration / 2;
-        }
-
-        if(duration >= 30 && (played >= 240 || played > minimum))
-          enqueue(& track);
-      }
-
-      submit(value(& rc, "username"), value(& rc, "password"));
-
-      /* Check if the user stopped the stream. */
-      if(enabled(STOPPED) || error) {
-        freelist(& playlist);
-        empty(& track);
-
-        if(error) {
-          fputs("Playback stopped with an error.\n", stderr);
-          error = 0;
-        }
-
-        disable(STOPPED);
-        disable(CHANGED);
-
-        continue;
-      }
-
-      shift(& playlist);
-    }
+	if(!background) {
+		struct input keyboard = { 0, KEYBOARD };
+		register_handle(keyboard);
+		canon(0);
+		atexit(cleanup_term);
+	}
 
 
-    if(playnext || enabled(CHANGED)) {
-      if(nextstation != NULL) {
-        playnext = 0;
-        disable(CHANGED);
+	/* Play default radio, if specified. */
+	if(haskey(& rc, "default-radio")) {
+		if(!strcmp(value(& rc, "default-radio"), "last")) {
+			char ** history = load_history(), * last = NULL, ** p;
 
-        if(!station(nextstation))
-          enable(STOPPED);
+			for(p = history; * p != NULL; ++p) {
+				last = * p;
+			}
 
-        free(nextstation);
-        nextstation = NULL;
-      }
+			set(& rc, "default-radio", last);
+			purge(history);
+		}
 
-      if(!enabled(STOPPED) && !playlist.left) {
-        expand(& playlist);
-        if(!playlist.left) {
-          puts("No tracks left.");
-          playnext = 0;
-          disable(CHANGED);
-          continue;
-        }
-      }
+		station(value(& rc, "default-radio"));
+	}
 
-      if(!playfork) {
-        /*
-          If there was a track played before, and there is a gap
-          configured, wait that many seconds before playing the next
-          track.
-        */
-        if(playnext && !enabled(INTERRUPTED) && haskey(& rc, "gap")) {
-          int gap = atoi(value(& rc, "gap"));
+	else if(!background)
+		radioprompt("radio url> ");
 
-          if(gap > 0)
-            sleep(gap);
-        }
+	/* The main loop. */
+	while(!0) {
+		pid_t child;
+		int status, playnext = 0;
 
-        disable(INTERRUPTED);
+		/* Check if anything died (submissions fork or playback fork). */
+		while((child = waitpid(-1, & status, WNOHANG | WUNTRACED | WCONTINUED)) > 0) {
+			if(child == subfork)
+				subdead(WEXITSTATUS(status));
+			else if(child == playfork) {
+				if(WIFSTOPPED(status)) {
+					/* time(& pausetime); */
+				}
+				else {
+					if(WIFCONTINUED(status)) {
+						signal(SIGTSTP, stopsig);
+						if(pausetime != 0) {
+							pauselength += time(NULL) - pausetime;
+						}
+					}
+					else {
+						playnext = !0;
+						unlinknp();
 
-        if(play(& playlist)) {
-          time(& change_time);
-          pauselength = 0;
+						if(delayquit) {
+							quit();
+						}
+					}
+					pausetime = 0;
+				}
+			}
+		}
 
-          set(& track, "stationURL", current_station);
+		/*
+			Check if the playback process died. If so, submit the data
+			of the last played track. Then check if there are tracks left
+			in the playlist; if not, try to refresh the list and stop the
+			stream if there are no new tracks to fetch.
+			Also handle user stopping the stream here.  We need to check for
+			playnext != 0 before handling enabled(STOPPED) anyway, otherwise
+			playfork would still be running.
+		*/
+		if(playnext) {
+			playfork = 0;
 
-          /* Print what's currently played. (Ondrej Novy) */
-          if(!background) {
-            if(enabled(CHANGED) && playlist.left > 0) {
-              puts(meta("Receiving %s.", M_COLORED, & track));
-              disable(CHANGED);
-            }
+			if(enabled(RTP)) {
+				unsigned duration, played, minimum;
 
-            if(haskey(& rc, "title-format"))
-              printf("%s\n", meta(value(& rc, "title-format"), M_COLORED, & track));
-            else
-              printf("%s\n", meta("Now playing \"%t\" by %a.", M_COLORED, & track));
-          }
+				duration = atoi(value(& track, "duration"));
+				played = time(NULL) - change_time - pauselength;
 
-          if(enabled(RTP)) {
-            notify_now_playing(
-              & track,
-              value(& rc, "username"),
-              value(& rc, "password")
-            );
-          }
+				/* Allow user to specify minimum playback length (min. 50%). */
+				if(haskey(& rc, "minimum")) {
+					unsigned percent = atoi(value(& rc, "minimum"));
+					if(percent < 50)
+						percent = 50;
+					minimum = duration * percent / 100;
+				}
+				else {
+					minimum = duration / 2;
+				}
 
+				if(duration >= 30 && (played >= 240 || played > minimum))
+					enqueue(& track);
+			}
 
-          /* Write track data into a file. */
-          if(haskey(& rc, "np-file") && haskey(& rc, "np-file-format")) {
-            signed np;
-            const char
-              * file = value(& rc, "np-file"),
-              * fmt = value(& rc, "np-file-format");
+			submit(value(& rc, "username"), value(& rc, "password"));
 
-            unlink(file);
-            if(-1 != (np = open(file, O_WRONLY | O_CREAT, 0644))) {
-              const char * output = meta(fmt, 0, & track);
-              if(output)
-                write(np, output, strlen(output));
-              close(np);
-            }
-          }
+			/* Check if the user stopped the stream. */
+			if(enabled(STOPPED) || error) {
+				freelist(& playlist);
+				empty(& track);
 
+				if(error) {
+					fputs("Playback stopped with an error.\n", stderr);
+					error = 0;
+				}
 
-          if(haskey(& rc, "screen-format")) {
-            const char * term = getenv("TERM");
-            if(term != NULL && !strncmp(term, "screen", 6)) {
-              const char * output =
-                meta(value(& rc, "screen-format"), 0, & track);
-              printf("\x1Bk%s\x1B\\", output);
-            }
-          }
+				disable(STOPPED);
+				disable(CHANGED);
 
+				continue;
+			}
 
-          if(haskey(& rc, "term-format")) {
-            const char * output =
-              meta(value(& rc, "term-format"), 0, & track);
-            printf("\x1B]2;%s\a", output);
-          }
+			shift(& playlist);
+		}
 
 
-          /* Run a command with our track data. */
-          if(haskey(& rc, "np-unescaped-cmd"))
-            run(meta(value(& rc, "np-unescaped-cmd"), 0, & track));
-          if(haskey(& rc, "np-cmd"))
-            run(meta(value(& rc, "np-cmd"), M_SHELLESC, & track));
-        } else
-          change_time = 0;
-      }
+		if(playnext || enabled(CHANGED)) {
+			if(nextstation != NULL) {
+				playnext = 0;
+				disable(CHANGED);
 
-      if(banned(value(& track, "creator"))) {
-        puts(meta("%a is banned.", M_COLORED, & track));
-        rate("B");
-        fflush(stdout);
-      }
-    }
+				if(!station(nextstation))
+					enable(STOPPED);
 
-    playnext = 0;
+				free(nextstation);
+				nextstation = NULL;
+			}
 
-    if(playfork && change_time && haskey(& track, "duration") && !pausetime) {
-      unsigned duration;
-      signed remain;
-      char remstr[32];
+			if(!enabled(STOPPED) && !playlist.left) {
+				expand(& playlist);
+				if(!playlist.left) {
+					puts("No tracks left.");
+					playnext = 0;
+					disable(CHANGED);
+					continue;
+				}
+			}
 
-      duration = atoi(value(& track, "duration"));
+			if(!playfork) {
+				/*
+					If there was a track played before, and there is a gap
+					configured, wait that many seconds before playing the next
+					track.
+				*/
+				if(playnext && !enabled(INTERRUPTED) && haskey(& rc, "gap")) {
+					int gap = atoi(value(& rc, "gap"));
 
-      remain = (change_time + duration) - time(NULL) + pauselength;
+					if(gap > 0)
+						sleep(gap);
+				}
 
-      snprintf(remstr, sizeof(remstr), "%d", remain);
-      set(& track, "remain", remstr);
+				disable(INTERRUPTED);
 
-      if(!background) {
-        printf(
-          "%s%c",
-          strdup(meta("%r", M_COLORED, & track)),
-          // strdup(meta("%v", M_COLORED, & track)),
-          batch ? '\n' : '\r'
-        );
-        fflush(stdout);
-      }
-    }
+				if(play(& playlist)) {
+					time(& change_time);
+					pauselength = 0;
 
-    handle_input(1000000);
-  }
+					set(& track, "stationURL", current_station);
 
-  return 0;
+					/* Print what's currently played. (Ondrej Novy) */
+					if(!background) {
+						if(enabled(CHANGED) && playlist.left > 0) {
+							puts(meta("Receiving %s.", M_COLORED, & track));
+							disable(CHANGED);
+						}
+
+						if(haskey(& rc, "title-format"))
+							printf("%s\n", meta(value(& rc, "title-format"), M_COLORED, & track));
+						else
+							printf("%s\n", meta("Now playing \"%t\" by %a.", M_COLORED, & track));
+					}
+
+					if(enabled(RTP)) {
+						notify_now_playing(
+							& track,
+							value(& rc, "username"),
+							value(& rc, "password")
+						);
+					}
+
+
+					/* Write track data into a file. */
+					if(haskey(& rc, "np-file") && haskey(& rc, "np-file-format")) {
+						signed np;
+						const char
+							* file = value(& rc, "np-file"),
+							* fmt = value(& rc, "np-file-format");
+
+						unlink(file);
+						if(-1 != (np = open(file, O_WRONLY | O_CREAT, 0644))) {
+							const char * output = meta(fmt, 0, & track);
+							if(output)
+								write(np, output, strlen(output));
+							close(np);
+						}
+					}
+
+
+					if(haskey(& rc, "screen-format")) {
+						const char * term = getenv("TERM");
+						if(term != NULL && !strncmp(term, "screen", 6)) {
+							const char * output =
+								meta(value(& rc, "screen-format"), 0, & track);
+							printf("\x1Bk%s\x1B\\", output);
+						}
+					}
+
+
+					if(haskey(& rc, "term-format")) {
+						const char * output =
+							meta(value(& rc, "term-format"), 0, & track);
+						printf("\x1B]2;%s\a", output);
+					}
+
+
+					/* Run a command with our track data. */
+					if(haskey(& rc, "np-unescaped-cmd"))
+						run(meta(value(& rc, "np-unescaped-cmd"), 0, & track));
+					if(haskey(& rc, "np-cmd"))
+						run(meta(value(& rc, "np-cmd"), M_SHELLESC, & track));
+				} else
+					change_time = 0;
+			}
+
+			if(banned(value(& track, "creator"))) {
+				puts(meta("%a is banned.", M_COLORED, & track));
+				rate("B");
+				fflush(stdout);
+			}
+		}
+
+		playnext = 0;
+
+		if(playfork && change_time && haskey(& track, "duration") && !pausetime) {
+			unsigned duration;
+			signed remain;
+			char remstr[32];
+
+			duration = atoi(value(& track, "duration"));
+
+			remain = (change_time + duration) - time(NULL) + pauselength;
+
+			snprintf(remstr, sizeof(remstr), "%d", remain);
+			set(& track, "remain", remstr);
+
+			if(!background) {
+				printf(
+					"%s%c",
+					strdup(meta("%r", M_COLORED, & track)),
+					// strdup(meta("%v", M_COLORED, & track)),
+					batch ? '\n' : '\r'
+				);
+				fflush(stdout);
+			}
+		}
+
+		handle_input(1000000);
+	}
+
+	return 0;
 }
 
 
