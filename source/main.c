@@ -180,7 +180,7 @@ int main(int argc, char ** argv) {
 #endif
 
   if(!background && !quiet) {
-    puts("Macports Shell.FM v" MACPORTS_PACKAGE_VERSION ", (C) 2011-2012 by Felix Wong");
+    puts("MacPorts Shell.FM v" MACPORTS_PACKAGE_VERSION ", (C) 2011-2012 by Felix Wong");
     puts("Original Shell.FM v" PACKAGE_VERSION ", (C) 2006-2010 by Jonas Kramer");
     puts("Published under the terms of the GNU General Public License (GPL).");
 
