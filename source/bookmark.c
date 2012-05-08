@@ -84,12 +84,13 @@ char * getmark(int n) {
 		return NULL;
 
 	while(!streamURL && !feof(fd)) {
-		char * line = NULL, x;
+		char * line = NULL;
+    int x;
 		unsigned size = 0, length;
 
 		length = getln(& line, & size, fd);
 		if(line && length > 4)
-			if(sscanf(line, "%c = ", & x) == 1 && x == n) {
+			if(sscanf(line, "%d = ", &x) == 1 && x == n) {
 				char * ptr = strchr(line, 10);
 				int length = 0;
 
