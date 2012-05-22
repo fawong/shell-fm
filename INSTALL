@@ -4,7 +4,7 @@ Shell.FM 0.5 Installation
 
 Requirements:
 * libmad
-* libao (optional)
+* libao
 * libtagc (optional)
 
 
