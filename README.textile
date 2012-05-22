@@ -9,7 +9,7 @@ shell-fm is a lightweight, console-based player for Last.FM radio streams. It's 
 
 h2. Requirements
 
-shell-fm doesn't need much. You definitely need libmad. shell-fm can also use libao for playback (optional).
+shell-fm doesn't need much. You definitely need libmad. shell-fm also uses libao for playback.
 
 h2. Installation
 
