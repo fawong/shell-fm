@@ -24,6 +24,8 @@ LDLIBS += $(shell pkg-config --libs mad) \
 	   $(shell pkg-config --libs ao) \
 	   $(shell ranlib *.a)
 
+LDLIBS += -lm
+
 ifeq ($(shell pkg-config --exists taglib_c && echo 1), 1)
 	CFLAGS  += $(shell pkg-config --cflags taglib_c) -DTAGLIB
 	LDLIBS += $(shell pkg-config --libs taglib_c)

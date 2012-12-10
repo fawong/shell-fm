@@ -8,7 +8,6 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "xmlrpc.h"
 #include "feeds.h"
 #include "hash.h"
 #include "completion.h"
@@ -16,22 +15,24 @@
 #include "interface.h"
 #include "settings.h"
 #include "getln.h"
+#include "rest.h"
 
 static char ** users = NULL;
 static int usercomplete(char *, const unsigned, int);
 
 void recommend(struct hash track) {
-	char key, * message = NULL, * recipient = NULL;
-	unsigned result = 0;
+	char key, * message = NULL, * recipient = NULL, * response = NULL;
+	const char * method, * error;
+	struct hash h = { 0, NULL };
 
-	struct prompt setup = {
+	struct prompt recipient_prompt = {
 		.prompt = "Recipient: ",
 		.line = NULL,
 		.history = NULL,
 		.callback = usercomplete,
 	};
 
-	struct prompt comment = {
+	struct prompt comment_prompt = {
 		.prompt = "Comment: ",
 		.line = NULL,
 		.history = NULL,
@@ -51,42 +52,50 @@ void recommend(struct hash track) {
 	users = neighbors(value(& rc, "username"));
 	users = merge(users, friends(value(& rc, "username")), 0);
 
-	recipient = readline(& setup);
+	recipient = strdup(readline(& recipient_prompt));
 
 	purge(users);
 	users = NULL;
 
-	message = readline(& comment);
+	message = strdup(readline(& comment_prompt));
 
 	switch(key) {
 		case 'a':
-			result = xmlrpc(
-				"recommendArtist", "ssss",
-				value(& track, "creator"),
-				recipient, message, "en"
-			);
+			method = "artist.share";
 			break;
 
 		case 'l':
-			result = xmlrpc(
-				"recommendAlbum", "sssss",
-				value(& track, "creator"),
-				value(& track, "album"),
-				recipient, message, "en"
-			);
+			method = "album.share";
+			set(& h, "album", value(& track, "album"));
 			break;
 
 		case 't':
-			result = xmlrpc(
-				"recommendTrack", "sssss",
-				value(& track, "creator"),
-				value(& track, "title"),
-				recipient, message, "en"
-			);
+			method = "track.share";
+			set(& h, "track", value(& track, "title"));
+			break;
+
+		default:
+			method = ""; /* This can't happen. */
 			break;
 	}
 
-	puts(result ? "Recommended." : "Sorry, failed.");
+	set(& h, "artist", value(& track, "creator"));
+	set(& h, "message", message);
+	set(& h, "recipient", recipient);
+
+	free(recipient);
+	free(message);
+
+	response = rest(method, & h);
+
+	error = error_message(response);
+
+	if(error != NULL) {
+		puts(error);
+	}
+
+	free(response);
+	empty(& h);
 }
 
 

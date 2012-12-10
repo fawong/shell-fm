@@ -20,6 +20,7 @@
 #include <dirent.h>
 
 #include "hash.h"
+#include "util.h"
 #include "service.h"
 #include "interface.h"
 #include "settings.h"
@@ -32,6 +33,7 @@
 #include "select.h"
 #include "history.h"
 #include "strary.h"
+#include "rest.h"
 
 #include "globals.h"
 
@@ -54,12 +56,6 @@
 #   undef  WIFCONTINUED
 #   define WIFCONTINUED(wstat)  (0)
 #endif
-
-unsigned flags = RTP;
-time_t change_time = 0, pausetime = 0;
-char * nextstation = NULL;
-
-int batch = 0, error = 0, delayquit = 0;
 
 static void cleanup(void);
 static void cleanup_term(void);
@@ -181,7 +177,7 @@ int main(int argc, char ** argv) {
 
   if(!background && !quiet) {
     puts("MacPorts Shell.FM v" MACPORTS_PACKAGE_VERSION ", (C) 2011-2012 by Felix Wong");
-    puts("Original Shell.FM v" PACKAGE_VERSION ", (C) 2006-2010 by Jonas Kramer");
+    puts("Original Shell.FM v" PACKAGE_VERSION ", (C) 2006-2012 by Jonas Kramer");
     puts("Published under the terms of the GNU General Public License (GPL).");
 
 #ifndef TUXBOX
@@ -215,7 +211,6 @@ int main(int argc, char ** argv) {
     fputs("Can't daemonize without control socket.\n", stderr);
     exit(EXIT_FAILURE);
   }
-
 
 	/* Ask for username/password if they weren't specified in the .rc file. */
 	if(!haskey(& rc, "password") && !haskey(& rc, "password-md5")) {
@@ -285,7 +280,7 @@ int main(int argc, char ** argv) {
 	ppid = getpid();
 
 	atexit(cleanup);
-	loadqueue(!0);
+	load_queue();
 
 	/* Set up signal handlers for communication with the playback process. */
 	signal(SIGINT, forcequit);
@@ -296,21 +291,8 @@ int main(int argc, char ** argv) {
 	/* Catch SIGTSTP to set pausetime when user suspends us with ^Z. */
 	signal(SIGTSTP, stopsig);
 
-
 	/* Authenticate to the Last.FM server. */
-	if(haskey(& rc, "password-md5") && !authenticate(value(& rc, "username"), value(& rc, "password-md5")))
-		exit(EXIT_FAILURE);
-	else if (!haskey(& rc, "password-md5") && !authenticate_plaintext(value(& rc, "username"), value(& rc, "password")))
-		exit(EXIT_FAILURE);
-
-	/* Store session key for use by external tools. */
-	if(haskey(& data, "session")) {
-		FILE * fd = fopen(rcpath("session"), "w");
-		if(fd) {
-			fprintf(fd, "%s\n", value(& data, "session"));
-			fclose(fd);
-		}
-	}
+	create_session();
 
 	if(!background) {
 		struct input keyboard = { 0, KEYBOARD };
@@ -401,11 +383,16 @@ int main(int argc, char ** argv) {
 					minimum = duration / 2;
 				}
 
-				if(duration >= 30 && (played >= 240 || played > minimum))
+				if(duration >= 30 && (played >= 240 || played > minimum)) {
+					debug("adding track to scrobble queue\n");
 					enqueue(& track);
+				}
+				else {
+					debug("track too short (duration %d, played %d, minimum %d) - not scrobbling\n", duration, played, minimum);
+				}
 			}
 
-			submit(value(& rc, "username"), value(& rc, "password"));
+			submit();
 
 			/* Check if the user stopped the stream. */
 			if(enabled(STOPPED) || error) {
@@ -484,11 +471,7 @@ int main(int argc, char ** argv) {
 					}
 
 					if(enabled(RTP)) {
-						notify_now_playing(
-							& track,
-							value(& rc, "username"),
-							value(& rc, "password")
-						);
+						notify_now_playing(& track);
 					}
 
 
@@ -537,7 +520,7 @@ int main(int argc, char ** argv) {
 
 			if(banned(value(& track, "creator"))) {
 				puts(meta("%a is banned.", M_COLORED, & track));
-				rate("B");
+				rate(RATING_BAN);
 				fflush(stdout);
 			}
 		}
@@ -559,7 +542,7 @@ int main(int argc, char ** argv) {
 			if(!background) {
 				printf(
 					"%s%c",
-					strdup(meta("%r", M_COLORED, & track)),
+					meta("%r", M_COLORED, & track),
 					// strdup(meta("%v", M_COLORED, & track)),
 					batch ? '\n' : '\r'
 				);

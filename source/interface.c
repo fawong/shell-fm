@@ -32,10 +32,10 @@
 #include "md5.h"
 #include "submit.h"
 #include "readline.h"
-#include "xmlrpc.h"
 #include "recommend.h"
 #include "util.h"
 #include "tag.h"
+#include "rest.h"
 
 #include "globals.h"
 
@@ -48,6 +48,7 @@ struct hash track;
 char * shellescape(const char *);
 
 void print_help(void);
+void rate_command(const char *);
 
 void handle_keyboard_input() {
   int key, result;
@@ -181,19 +182,14 @@ void handle_keyboard_input() {
       printmarks();
       break;
 
-    case 'H':
-      if(playfork && current_station) {
-        char * number;
-        struct prompt prompt = {
-          .prompt = "Number you want to bookmark this stream as: ",
-          .line = NULL,
-          .history = NULL,
-          .callback = NULL,
-        };
-        number = readline(& prompt);
-        setmark(current_station, atoi(number));
-      }
-      break;
+		case 'H':
+			if(playfork && current_station) {
+				puts("Enter a key for the bookmark.");
+				fflush(stdout);
+				key = fetchkey(5000000);
+				setmark(current_station, key);
+			}
+			break;
 
     case 'S':
       if(playfork) {
@@ -292,6 +288,7 @@ void handle_keyboard_input() {
       puts("Configuration reloaded");
       break;
   }
+
 }
 
 int fetchkey(unsigned nsec) {
@@ -563,6 +560,23 @@ int rate(const char * rating) {
   }
 
   return 0;
+}
+
+
+void skip(void) {
+	if(playfork) {
+		enable(INTERRUPTED);
+		kill(playfork, SIGUSR1);
+		rate_command("S");
+	}
+}
+
+
+void rate_command(const char * rating) {
+	set(& track, "rating", rating);
+
+	if(haskey(& rc, "rate-cmd"))
+		run(meta(value(& rc, "rate-cmd"), M_SHELLESC, & track));
 }
 
 

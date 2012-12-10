@@ -5,7 +5,6 @@
 
 #define _GNU_SOURCE
 
-#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -16,7 +15,6 @@
 #include <stdarg.h>
 
 #include <sys/socket.h>
-#include <sys/stat.h>
 
 #include "hash.h"
 #include "history.h"
@@ -33,8 +31,8 @@
 #endif
 
 
-char ** fetch(const char * url, FILE ** handle, const char * post, const char * type) {
-	char ** resp = NULL, * host, * file, * port, * status = NULL, * line = NULL;
+char * fetch(const char * url, FILE ** handle, const char * post, const char * type) {
+	char * resp = NULL, * host, * file, * port, * status = NULL, * line = NULL;
 	char * connhost;
 	char urlcpy[512 + 1];
 	unsigned short nport = 80, chunked = 0;
@@ -163,94 +161,77 @@ char ** fetch(const char * url, FILE ** handle, const char * post, const char * 
 
 	if(!batch && !enabled(QUIET))
 		fputs("\r   \r", stderr);
+
 	return resp;
 }
 
-char ** read_response(FILE * fd) {
-	char * line, ** resp = NULL;
-	unsigned size, nline = 0;
+char * read_response(FILE * fd) {
+	unsigned size = 512, index = 0;
+	char * content = malloc(size * sizeof(char));
+
+	debug("read unchunked\n");
 
 	while(!feof(fd)) {
-		line = NULL;
-		size = 0;
+		int c = fgetc(fd);
 
-		if(getln(& line, & size, fd)) {
-			char * ptr = strchr(line, 10);
+		if(c == EOF) {
+			break;
+		}
+		else {
+			content[index++] = c;
 
-			if(ptr != NULL)
-				* ptr = (char) 0;
-
-			resp = realloc(resp, (nline + 2) * sizeof(char *));
-			assert(resp != NULL);
-
-			resp[nline] = line;
-			resp[++nline] = NULL;
-		} else if(size)
-			free(line);
+			if(index == (size - 2)) {
+				size += 512;
+				content = realloc(content, size * sizeof(char));
+			}
+		}
 	}
 
-	return resp;
+	content = realloc(content, (index + 1) * sizeof(char));
+	content[index] = 0;
+
+	debug("result (%d): <\n%s\n>\n", index + 1, content);
+
+	return content;
 }
 
 /* Re-assemble a chunked response */
-char ** read_response_chunked(FILE * fd) {
-	char * line, * pos = NULL, * ptr, * chunks = NULL, ** resp = NULL;
-	unsigned size, chunk_size, response_size = 0, nlines = 0;
+char * read_response_chunked(FILE * fd) {
+	unsigned size = 0;
+	char * content = NULL;
 
-	/* Read all chunks */
 	while(!feof(fd)) {
-		line = NULL;
-		size = 0;
+		unsigned chunk_size = 0;
 
-		if(getln(& line, & size, fd)) {
-			ptr = strchr(line, 10);
+		if(fscanf(fd, "%x\r\n", & chunk_size) == 1 && chunk_size != 0) {
+			size_t bytes;
 
-			if(ptr != NULL)
-				* ptr = (char) 0;
+			// debug("chunk size = %d\n", chunk_size);
 
-			/* chunk_size = 0 means no more chunks follow */
-			if (sscanf(line, "%x", &chunk_size) == 1 && chunk_size != 0) {
-				response_size += chunk_size;
+			content = realloc(content, size + chunk_size + 1);
 
-				chunks = realloc(chunks, response_size * sizeof(char));
-				assert(chunks != NULL);
+			bytes = fread(content + size, 1, chunk_size * sizeof(char), fd);
 
-				if (pos == NULL)
-					pos = chunks;
+			/* Skip CRLF */
+			fgetc(fd);
+			fgetc(fd);
 
-				/* We don't have to worry about reading the CRLF after
-				 * chunks, since getln() will read past them */
-				if (fread(pos, 1, chunk_size, fd) != chunk_size)
-				{
-					debug("Couldn't read chunks.\n");
-					break;
-				}
+			if(bytes != chunk_size) {
+				// debug("expected %d bytes, got %d\n", chunk_size, bytes);
+				break;
+			}
 
-				pos += chunk_size;
-			} else if (chunk_size == 0)
-				break; /* Ignore trailing headers */
-		} else if(size)
-			free(line);
+			size += chunk_size;
+		}
+		else if(chunk_size == 0) {
+			// debug("else chunk size = %d\n", chunk_size);
+			break; /* Ignore trailing headers */
+		}
 	}
 
-	/* Break response into lines */
-	pos = chunks;
-	while (pos != NULL && pos < (chunks + response_size)) {
-		resp = realloc(resp, (nlines + 2) * sizeof(char *));
-		assert(resp != NULL);
+	content[size] = 0;
 
-		resp[nlines] = pos;
-		resp[++nlines] = NULL;
-
-		pos = strchr(pos, '\n');
-		if (pos != NULL)
-			*pos = '\0';
-
-		/* Set the pointer to just after the previous line or NULL if at the end */
-		pos = (pos != NULL && pos < (chunks + response_size)) ? pos + 1 : NULL;
-	}
-
-	return resp;
+	return content;
 }
 
 unsigned encode(const char * orig, char ** encoded) {
@@ -261,7 +242,7 @@ unsigned encode(const char * orig, char ** encoded) {
 	assert(* encoded != NULL);
 
 	while(i < strlen(orig)) {
-		if(isalnum(orig[i]) || orig[i] == ' ')
+		if(isalnum(orig[i]) || orig[i] == ' ' || orig[i] == '_')
 			(* encoded)[x++] = orig[i];
 		else {
 			snprintf(
@@ -394,49 +375,31 @@ const char * makeurl(const char * fmt, ...) {
 	return url;
 }
 
-char ** cache(const char * url, const char * name, int refresh) {
-	time_t expiry = 60 * 60 * 24;
-	char path[4096];
 
-	if(haskey(& rc, "expiry"))
-		expiry = atoi(value(& rc, "expiry"));
+const char * hash_query(struct hash * form) {
+	static char query[1024];
+	unsigned n, length = 0;
 
-	memset(path, (char) 0, sizeof(path));
-	strncpy(path, rcpath("cache"), sizeof(path));
-	if(access(path, W_OK | X_OK))
-		mkdir(path, 0700);
+	memset(query, 0, sizeof(query));
 
-	snprintf(path, sizeof(path), "%s/%s", rcpath("cache"), name);
+	for(n = 0; n < form->size && length < sizeof(query); ++n) {
+		char * encoded_key = NULL, * encoded_value = NULL;
+		int printed;
 
-	if(!refresh) {
-		if(access(path, R_OK | W_OK))
-			refresh = !0;
-		else {
-			time_t now = time(NULL);
-			struct stat status;
+		encode(form->content[n].key, & encoded_key);
+		encode(form->content[n].value, & encoded_value);
 
-			stat(path, & status);
-			if(status.st_mtime < now - expiry)
-				refresh = !0;
+		printed = snprintf(query + length, sizeof(query) - length, "%s=%s&", encoded_key, encoded_value);
+
+		free(encoded_key);
+		free(encoded_value);
+
+		if(printed > 0) {
+			length += printed;
 		}
 	}
 
-	if(!refresh)
-		return slurp(path);
-	else {
-		char ** data = fetch(url, NULL, NULL, NULL);
-		if(data) {
-			FILE * fd = fopen(path, "w");
-			if(fd != NULL) {
-				unsigned line = 0;
-				while(data[line])
-					fprintf(fd, "%s\n", data[line++]);
-				fclose(fd);
-			} else {
-				fputs("Couldn't write cache.\n", stderr);
-			}
-		}
+	query[--length] = '\0';
 
-		return data;
-	}
+	return query;
 }
