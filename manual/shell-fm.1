@@ -1,8 +1,8 @@
-.TH "shell-fm-macports" 1
+.TH "shell-fm" 1
 .SH NAME
 Shell.FM \- Lightweight, console-based player for Last.FM radio streams.
 .SH SYNOPSIS
-.B shell-fm-macports
+.B shell-fm
 [-d] [-i address] [-p port] [-b] [-D device] [-y proxy] [-h] lastfm://...
 .SH DESCRIPTION
 Shell.FM is a lightweight, console-based player for radio streams provided by
@@ -18,14 +18,14 @@ Enable quiet mode, which suppresses startup messages.
 .TP
 .B \-i <address>
 Enable the socket interface and bind it to the given host address (should be
-the host name or IP address of the host shell-fm-macports is running on).
+the host name or IP address of the host shell-fm is running on).
 .TP
 .B \-p <port>
 Make the socket interface listen for incoming connections on the given port.
 Default is 54311.
 .TP
 .B \-b
-Enable batch mode (some freaky mode that makes shell-fm-macports easier to handle from
+Enable batch mode (some freaky mode that makes shell-fm easier to handle from
 inside emacs). This was not my idea.
 .TP
 .B \-D <device>
@@ -33,21 +33,21 @@ Use the given device file as audio device. This is only used if libao support
 is disabled. Default is /dev/audio.
 .TP
 .B \-y <proxy>
-Make shell-fm-macports use the given host as proxy server for HTTP requests.
+Make shell-fm use the given host as proxy server for HTTP requests.
 .TP
 .B \-h
 Print help text and exit.
 .TP
 .B lastfm://...
 URI of a Last.FM radio stream to play after startup.
-For example: `shell-fm-macports -d lastfm://artist/The%20Beatles/similarartists'
+For example: `shell-fm -d lastfm://artist/The%20Beatles/similarartists'
 .SH USAGE
-On startup, shell-fm-macports will ask you for your Last.FM login and password
+On startup, shell-fm will ask you for your Last.FM login and password
 (if not
-provided in your ~/.shell-fm-macports/shell-fm-macports.rc). If you've given a stream URI on the
+provided in your ~/.shell-fm/shell-fm.rc). If you've given a stream URI on the
 command line or there is a default radio defined in the configuration file,
-shell-fm-macports will now try to play it. When the startup is done, there are lots of
-keys to control shell-fm-macports. Here is a alphabetically sorted list.
+shell-fm will now try to play it. When the startup is done, there are lots of
+keys to control shell-fm. Here is a alphabetically sorted list.
 .TP
 .B a
 Add the currently played track to your Last.FM playlist.
@@ -72,7 +72,7 @@ List bookmarks.
 .TP
 .B H
 Bookmark the currently played radio station. You'll be asked to hit a digit
-key. Whenever you hit that key again from now on, shell-fm-macports will jump to that
+key. Whenever you hit that key again from now on, shell-fm will jump to that
 radio station.
 .TP
 .B g [bookmark letter]
@@ -137,43 +137,43 @@ Mute/unmute.
 .PP
 .SH SETUP
 Before you start, you should have created the directories
-.B ~/.shell-fm-macports
+.B ~/.shell-fm
 and
-.B ~/.shell-fm-macports/cache
+.B ~/.shell-fm/cache
 or you will get a lot of warnings, the tab-completion will be extremely
 slow and you can't make use of some features (auto-ban, history, bookmarks).
 You might also want to place a configuration file in
-.B ~/.shell-fm-macports
+.B ~/.shell-fm
 for a faster startup.
 .SH CONFIGURATION
-This section describes the syntax and options for the shell-fm-macports configuration
+This section describes the syntax and options for the shell-fm configuration
 file. The file should be placed in
-.B ~/.shell-fm-macports/shell-fm-macports.rc
+.B ~/.shell-fm/shell-fm.rc
 and should consist of simple
 .B key = value
 assignments.
 See (far) below for a sample configuration. These are the available options.
 .TP
 .B username = your-login
-This is your login on Last.FM. If this is provided, shell-fm-macports won't ask you for
+This is your login on Last.FM. If this is provided, shell-fm won't ask you for
 it on startup anymore.
 .TP
 .B password = your-password
 This is your (clear text) Last.FM password. If this and your login is provided
-in the configuration, shell-fm-macports won't ask you on startup.
+in the configuration, shell-fm won't ask you on startup.
 .TP
 .B password-md5 = your-password-md5
 An MD5 hash of your Last.FM password. This can be used instead of a clear text
-password if you're worried about someone reading your shell-fm-macports.rc file.
+password if you're worried about someone reading your shell-fm.rc file.
 .TP
 .B default-radio = lastfm://...
-If this is provided (and valid), shell-fm-macports will play this station by default
+If this is provided (and valid), shell-fm will play this station by default
 after startup. If there's another station URI given on the command line, it
 will override this setting. If this is set to "last", the last played station
 from the history will be started.
 .TP
 .B np-file = path-to-file
-If this is defined, shell-fm-macports will print information about the currently played
+If this is defined, shell-fm will print information about the currently played
 track into the given file, whenever a new track is played.
 .TP
 .B np-file-format = format-string
@@ -207,16 +207,16 @@ printed to the console, it will have the given color. Have a look at the
 section for a list.
 .TP
 .B daemon = something
-If this is set to something, shell-fm-macports will start in daemon mode by default.
+If this is set to something, shell-fm will start in daemon mode by default.
 Starting with -d as command line option will disable daemon mode.
 .TP
 .B quiet = something
-If this is set to something, shell-fm-macports will start in quiet mode by default.
+If this is set to something, shell-fm will start in quiet mode by default.
 Starting with -q as command line option will disable quiet mode.
 .TP
 .B key0x?? = shell command
 This allows you to bind shell commands to free keys (keys that are not used by
-shell-fm-macports, check the
+shell-fm, check the
 .B USAGE
 section above for a list).
 .B ??
@@ -229,21 +229,21 @@ etc. If you have a cool idea or even a working script, I'd be happy if you let
 me know.
 .TP
 .B bind = host
-This specifies the network interface you want shell-fm-macports to bind to.
+This specifies the network interface you want shell-fm to bind to.
 .B host
-should be the host name or an IP address of host shell-fm-macports is running on.
-shell-fm-macports will open a port (see the
+should be the host name or an IP address of host shell-fm is running on.
+shell-fm will open a port (see the
 .B port
 option below) on the specified interface which you can connect to to control
-shell-fm-macports remotely (or from local scripts, see
+shell-fm remotely (or from local scripts, see
 .B key0x??
 above). Check the
 .B NETWORK INTERFACE COMMANDS
 section below for a list of known commands.
 .B NOTE:
 The network interface has no user authentication, so anyone with access to your
-network/host can control shell-fm-macports. Use it only if you really need to control
-shell-fm-macports over a network. Otherwise use the UNIX socket interface (see below).
+network/host can control shell-fm. Use it only if you really need to control
+shell-fm over a network. Otherwise use the UNIX socket interface (see below).
 .TP
 .B unix = path
 If this is set to a proper path, on that path a UNIX socket will be created for
@@ -251,17 +251,17 @@ local "remote" control. This socket interface takes the same commands as the
 TCP socket interface (see above).
 .TP
 .B port = port-number
-With this option you can change the port shell-fm-macports will listen on (if
+With this option you can change the port shell-fm will listen on (if
 .B bind
 is specified). Default is 54311.
 .TP
 .B extern = shell command
 This allows you to specify an external program or script as player for the
-streams. If given, shell-fm-macports will run the command and pipe the MP3 stream into
+streams. If given, shell-fm will run the command and pipe the MP3 stream into
 it, instead of playing the stream itself. For example,
 .B extern = madplay -Q -
 works very fine. This option is meant as a work-around for architectures that
-shell-fm-macports doesn't work completly profectly on.
+shell-fm doesn't work completly profectly on.
 .TP
 .B proxy = proxy server
 This allows you to specify a proxy server for the HTTP requests.
@@ -270,7 +270,7 @@ This allows you to specify a proxy server for the HTTP requests.
 This defines the number of seconds until a cached page expires. The default is
 86400 seconds (24 hours). You shouldn't set a very low value here, since the
 Last.FM server often are very slow. This mostly affects the prompts (radio
-prompt, tag prompt, ...), since shell-fm-macports fetches some feeds to get values for
+prompt, tag prompt, ...), since shell-fm fetches some feeds to get values for
 the tab-completion.
 .TP
 .B device = path
@@ -294,11 +294,11 @@ specified in the scrobbling protocol version 1.2.
 If this is set to anything, and you change the station with 'r', 's' or 'f',
 the station-change will be delayed until the currently played track finishes or
 is skipped. Also they key 'q' will initialize a delayed quit, so after the
-currently played track shell-fm-macports will exit. 'Q' (uppercase) still quits
+currently played track shell-fm will exit. 'Q' (uppercase) still quits
 immediately.
 .TP
 .B screen-format = format-string
-If this is set, shell-fm-macports will check if the terminal it's running in is a screen
+If this is set, shell-fm will check if the terminal it's running in is a screen
 session ($TERM is "screen") and set the screen windows title to the formatted
 string to be seen on $ESCAPE+w or $ESCAPE+".
 .TP
@@ -310,7 +310,7 @@ If this is set to a valid path (may contain format flags), and the played track
 is free, it is saved at the given place.
 .TP
 .B gap = seconds
-If this is set to a number, shell-fm-macports will wait that amount of seconds between
+If this is set to a number, shell-fm will wait that amount of seconds between
 tracks.
 .TP
 .B discovery = something
@@ -318,9 +318,9 @@ Enable discovery mode by default.
 .TP
 .B stream-timeout = seconds
 Users reported that in some regions in the world, Last.FM servers sometimes
-pretend to stream a track but then don't send anything, which makes shell-fm-macports
+pretend to stream a track but then don't send anything, which makes shell-fm
 hang forever waiting for the track data. If you have that problem, use this
-option to define a stream timeout. When shell-fm-macports is waiting for stream data, it
+option to define a stream timeout. When shell-fm is waiting for stream data, it
 will wait that many seconds and then skip to the next track.
 .TP
 .B no-rtp = something
@@ -447,7 +447,7 @@ Gray.
 .B 1;37
 White.
 .SH NETWORK INTERFACE COMMANDS
-This section describes the commands shell-fm-macports's network interface knows. To use
+This section describes the commands shell-fm's network interface knows. To use
 the interface, you must provide a valid value to the
 .B bind
 option in your configuration or use the
@@ -529,7 +529,7 @@ Returns the player status, PLAYING, PAUSED or STOPPED.
 .B detach
 Detaches from the network interface. Use this to cleanly close your session.
 .SH FILES
-This section describes the meanings of the files in $HOME/.shell-fm-macports/. The base
+This section describes the meanings of the files in $HOME/.shell-fm/. The base
 directory can be overriden by setting the environment variable $SHELL_FM_HOME
 to another directory.
 .TP
@@ -554,26 +554,26 @@ If Shell.FM can't scrobble the data of a track for any reason before you quit,
 it stores the track data in here and it will try to submit the tracks the next
 time it is run.
 .TP
-.B shell-fm-macports.rc
+.B shell-fm.rc
 Your configuration file as described above.
 .SH EXAMPLES
 .TP
-.B  Sample Configuration for shell-fm-macports.rc
+.B  Sample Configuration for shell-fm.rc
 .PP
 .RS
 .nf
-# shell-fm-macports.rc example
+# shell-fm.rc example
 username = shellfmlover
 password = CheckFileIsOnlyReadableByOwner
 default-radio = lastfm://user/shellfmlover/playlist
-np-file = /home/shellfmlover/.shell-fm-macports/nowplaying
+np-file = /home/shellfmlover/.shell-fm/nowplaying
 np-file-format = %t:%a:%S:%A
 minimum = 80
 delay-change = true
 .fi
 .RE
 .TP
-.B shell-fm-macports-*.*/scripts/
+.B shell-fm-*.*/scripts/
 Includes examples of using the network interface plus a color printing script to help with choosing colors.
 .TP
 .B URL FORMAT
@@ -590,7 +590,7 @@ lastfm://artist/$ARTIST/fans
 lastfm://tag/$TAG1*$TAG2*$TAG3
 .fi
 .SH BUGS
-Please send bug reports to <shell-fm-macports@nex.scrapping.cc>.
+Please send bug reports to <shell-fm@nex.scrapping.cc>.
 .SH COPYRIGHT
 Copyright (C) 2006-2010 by Jonas Kramer.
 MacPorts version by Felix Wong.
