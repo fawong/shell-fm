@@ -599,7 +599,7 @@ static void cleanup(void) {
   if(subfork)
     waitpid(subfork, NULL, 0);
 
-  dumpqueue(!0);
+  dump_queue();
 
   /* Clean cache. */
   if(!access(rcpath("cache"), R_OK | W_OK | X_OK)) {
