@@ -70,22 +70,22 @@ void handle_keyboard_input() {
 
   switch(key) {
     case 'l':
-      puts(rate("L") ? "Loved." : "Sorry, failed.");
+      puts(rate(RATING_LOVE) ? "Loved." : "Sorry, failed.");
       break;
 
     case 'U':
-      puts(rate("U") ? "Unloved." : "Sorry, failed.");
+      puts(rate(RATING_UNLOVE) ? "Unloved." : "Sorry, failed.");
       break;
 
     case 'B':
-      puts(rate("B") ? "Banned." : "Sorry, failed.");
+      puts(rate(RATING_BAN) ? "Banned." : "Sorry, failed.");
       fflush(stdout);
       enable(INTERRUPTED);
       kill(playfork, SIGUSR1);
       break;
 
     case 'n':
-      rate("S");
+      skip();
       break;
 
     case 'q':
@@ -133,9 +133,9 @@ void handle_keyboard_input() {
       printf("Discovery mode %s.\n", enabled(DISCOVERY) ? "enabled" : "disabled");
       if(playfork) {
         printf(
-          "%u track(s) left to play/skip until change comes into effect.\n",
-          playlist.left
-        );
+            "%u track(s) left to play/skip until change comes into effect.\n",
+            playlist.left
+            );
       }
       break;
 
@@ -146,17 +146,18 @@ void handle_keyboard_input() {
         puts("\nAbort.");
       else if(autoban(value(& track, "creator"))) {
         printf("\n%s banned.\n", meta("%a", M_COLORED, & track));
-        rate("B");
+        rate(RATING_BAN);
       }
       fflush(stdout);
       break;
 
     case 'a':
-      result = xmlrpc(
-        "addTrackToUserPlaylist", "ss",
-        value(& track, "creator"),
-        value(& track, "title")
-      );
+      result = 0;
+      //result = xmlrpc(
+      //  "addTrackToUserPlaylist", "ss",
+      //  value(& track, "creator"),
+      //  value(& track, "title")
+      //);
 
       puts(result ? "Added to playlist." : "Sorry, failed.");
       break;
@@ -182,14 +183,14 @@ void handle_keyboard_input() {
       printmarks();
       break;
 
-		case 'H':
-			if(playfork && current_station) {
-				puts("Enter a key for the bookmark.");
-				fflush(stdout);
-				key = fetchkey(5000000);
-				setmark(current_station, key);
-			}
-			break;
+    case 'H':
+      if(playfork && current_station) {
+        puts("Enter a key for the bookmark.");
+        fflush(stdout);
+        key = fetchkey(5000000);
+        setmark(current_station, key);
+      }
+      break;
 
     case 'S':
       if(playfork) {
@@ -371,10 +372,10 @@ const char * meta(const char * fmt, int flags, struct hash * track) {
           case 'f':
             duration = atoi(value(track, "duration")); // duration in sec
             snprintf(
-              calculated,
-              sizeof(calculated),
-              "%d:%02d",
-              (duration / 60), (duration % 60));
+                calculated,
+                sizeof(calculated),
+                "%d:%02d",
+                (duration / 60), (duration % 60));
             val = strdup(calculated);
             break;
           case 'p':
@@ -389,35 +390,35 @@ const char * meta(const char * fmt, int flags, struct hash * track) {
           case 'R':
             track_key = "remain";
             break;
-                  case 'r':   // remaining time, formatted as min:sec
-                  remain = atoi(value(track, "remain"));
-              snprintf(
-                  calculated,
-                  sizeof(calculated),
-                  "%c%02d:%02d",
-                  remain < 0 ? '-' : ' ',
-                  (remain >= 0) ? (remain / 60) : (-remain / 60),
-                  (remain >= 0) ? (remain % 60) : (-remain % 60));
-              val = strdup(calculated);
-              break;
+          case 'r':   // remaining time, formatted as min:sec
+            remain = atoi(value(track, "remain"));
+            snprintf(
+                calculated,
+                sizeof(calculated),
+                "%c%02d:%02d",
+                remain < 0 ? '-' : ' ',
+                (remain >= 0) ? (remain / 60) : (-remain / 60),
+                (remain >= 0) ? (remain % 60) : (-remain % 60));
+            val = strdup(calculated);
+            break;
 
-                  case 'v': // volume percentage
-              snprintf(
-                  calculated,
-                  sizeof(calculated),
-                  "%d%%",
-                  ((volume * 100 / MAX_VOLUME * 100) / 100));
-              val = strdup(calculated);
-              break;
+          case 'v': // volume percentage
+            snprintf(
+                calculated,
+                sizeof(calculated),
+                "%d%%",
+                ((volume * 100 / MAX_VOLUME * 100) / 100));
+            val = strdup(calculated);
+            break;
 
           case 'b': // absolute volume
             snprintf(
-              calculated,
-              sizeof(calculated),
-              "%d",
-              volume
-            );
-              val = strdup(calculated);
+                calculated,
+                sizeof(calculated),
+                "%d",
+                volume
+                );
+            val = strdup(calculated);
             break;
 
           case 'V':
@@ -447,7 +448,7 @@ const char * meta(const char * fmt, int flags, struct hash * track) {
           val = strdup(value(track, track_key));
         }
         else if(tagging_item) {
-          val = oldtags(tagging_item, * track);
+          val = NULL; //oldtags(tagging_item, * track);
           if(!val) {
             val = strdup("");
           }
@@ -509,53 +510,66 @@ const char * meta(const char * fmt, int flags, struct hash * track) {
 
 void run(const char * cmd) {
   if(!fork()) {
-        _exit(system(cmd));
+    _exit(system(cmd));
   }
 }
 
 
-int rate(const char * rating) {
-  if(playfork && rating != NULL) {
+int rate(int rating) {
+  if(playfork) {
+    struct hash p = { 0, NULL };
+    const char * method, * error;
+    char * response, full_method[32];
 
-    if(rating[0] != 'U')
-      set(& track, "rating", rating);
-    else
-      set(& track, "rating", "");
+    switch(rating) {
+      case RATING_LOVE:
+        method = "love";
+        break;
 
-    if(haskey(& rc, "rate-cmd"))
-      run(meta(value(& rc, "rate-cmd"), M_SHELLESC, & track));
-
-    switch(rating[0]) {
-      case 'B':
+      case RATING_BAN:
         kill(playfork, SIGUSR1);
         enable(INTERRUPTED);
-        return xmlrpc(
-          "banTrack",
-          "ss",
-          value(& track, "creator"),
-          value(& track, "title")
-        );
+        method = "ban";
+        break;
 
-      case 'L':
-        return xmlrpc(
-          "loveTrack",
-          "ss",
-          value(& track, "creator"),
-          value(& track, "title")
-        );
+      case RATING_UNLOVE:
+        method = "unlove";
+        break;
 
-      case 'U':
-        return xmlrpc(
-          "unLoveTrack",
-          "ss",
-          value(& track, "creator"),
-          value(& track, "title")
-        );
+      case RATING_UNBAN:
+        method = "unban";
+        break;
 
-      case 'S':
-        enable(INTERRUPTED);
-        kill(playfork, SIGUSR1);
-        return !0;
+      default:
+        return 0;
+    }
+
+    set(& p, "track", value(& track, "title"));
+    set(& p, "artist", value(& track, "creator"));
+
+    snprintf(full_method, sizeof(full_method), "track.%s", method);
+
+    response = rest(full_method, & p);
+
+    error = error_message(response);
+
+    free(response);
+    empty(& p);
+
+    if(error != NULL) {
+      fprintf(stderr, "Failed to %s track. %s.\n", method, error);
+    }
+    else {
+      char * rating_code[RATING_MAX];
+
+      rating_code[RATING_LOVE] = "L";
+      rating_code[RATING_BAN] = "B";
+      rating_code[RATING_UNLOVE] = "U";
+      rating_code[RATING_UNBAN] = "X"; // Banned tracks won't be played, so this actually can't happen.
+
+      rate_command(rating_code[rating]);
+
+      return 1;
     }
   }
 
@@ -564,19 +578,19 @@ int rate(const char * rating) {
 
 
 void skip(void) {
-	if(playfork) {
-		enable(INTERRUPTED);
-		kill(playfork, SIGUSR1);
-		rate_command("S");
-	}
+  if(playfork) {
+    enable(INTERRUPTED);
+    kill(playfork, SIGUSR1);
+    rate_command("S");
+  }
 }
 
 
 void rate_command(const char * rating) {
-	set(& track, "rating", rating);
+  set(& track, "rating", rating);
 
-	if(haskey(& rc, "rate-cmd"))
-		run(meta(value(& rc, "rate-cmd"), M_SHELLESC, & track));
+  if(haskey(& rc, "rate-cmd"))
+    run(meta(value(& rc, "rate-cmd"), M_SHELLESC, & track));
 }
 
 
@@ -616,7 +630,6 @@ char * shellescape(const char * string) {
 
 
 void quit() {
-  unlink(rcpath("session"));
   unlinknp();
   exit(EXIT_SUCCESS);
 }
@@ -634,21 +647,21 @@ void print_help(void) {
   unsigned i, custom = 0;
 
   fputs(
-    "a = add the track to the playlist | A = autoban artist\n"
-    "B = ban Track                     | d = discovery mode\n"
-    "E = manually expand playlist      | f = fan Station\n"
-    "h = list bookmarks                | H = bookmark current radio\n"
-    "i = current track information     | l = love track\n"
-    "n = skip track                    | p = pause\n"
-    "P = enable/disable RTP            | Q = quit\n"
-    "r = change radio station          | R = recommend track/artist/album\n"
-    "S = stop                          | s = similiar artist\n"
-    "T = tag track/artist/album        | u = show upcoming tracks in playlist\n"
-    "U = unlove track                  | = = increase volume\n"
-    "- = decrease volume               | C = reload configuration\n"
-    "m = mute/unmute                   | g = goto bookmark\n",
-    stderr
-  );
+      "a = add the track to the playlist | A = autoban artist\n"
+      "B = ban Track                     | d = discovery mode\n"
+      "E = manually expand playlist      | f = fan Station\n"
+      "h = list bookmarks                | H = bookmark current radio\n"
+      "i = current track information     | l = love track\n"
+      "n = skip track                    | p = pause\n"
+      "P = enable/disable RTP            | Q = quit\n"
+      "r = change radio station          | R = recommend track/artist/album\n"
+      "S = stop                          | s = similiar artist\n"
+      "T = tag track/artist/album        | u = show upcoming tracks in playlist\n"
+      "U = unlove track                  | = = increase volume\n"
+      "- = decrease volume               | C = reload configuration\n"
+      "m = mute/unmute                   | g = goto bookmark\n",
+      stderr
+      );
 
   for(i = 0; i < rc.size; ++i) {
     struct pair * p = & rc.content[i];
