@@ -4,6 +4,8 @@
 
 #include "hash.h"
 #include "playlist.h"
+#include "time.h"
+#include "unistd.h"
 
 /* Track, session and settings data structures. */
 extern struct hash data, track;
