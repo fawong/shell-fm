@@ -21,8 +21,7 @@ CFLAGS  += -DLIBAO \
 	   $(shell pkg-config --cflags mad) \
 	   $(shell pkg-config --cflags ao)
 LDLIBS += $(shell pkg-config --libs mad) \
-	   $(shell pkg-config --libs ao) \
-	   $(shell ranlib *.a)
+	   $(shell pkg-config --libs ao)
 
 LDLIBS += -lm
 
