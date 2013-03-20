@@ -46,60 +46,52 @@ void expand_station_url(char **);
 #define HTTP_STATION_PREFIX "http://www.last.fm/listen/"
 
 
-	/* create the hash, then convert to ASCII */
-	md5 = MD5((const unsigned char *) password, strlen(password));
-	for(ndigit = 0; ndigit < 16; ++ndigit)
-		sprintf(2 * ndigit + hexmd5, "%02x", md5[ndigit]);
-
-	return authenticate(username, hexmd5);
-}
-
 int authenticate(const char * username, const char * passwordmd5) {
-	char url[512] = { 0 }, ** response;
-	char * encuser = NULL;
-	unsigned i = 0;
-	const char * session, * fmt =
-		"http://ws.audioscrobbler.com/radio/handshake.php"
-		"?version=0.1"
-		"&platform=linux"
-		"&username=%s"
-		"&passwordmd5=%s"
-		"&debug=0"
-		"&language=en";
+  char url[512] = { 0 }, ** response;
+  char * encuser = NULL;
+  unsigned i = 0;
+  const char * session, * fmt =
+    "http://ws.audioscrobbler.com/radio/handshake.php"
+    "?version=0.1"
+    "&platform=linux"
+    "&username=%s"
+    "&passwordmd5=%s"
+    "&debug=0"
+    "&language=en";
 
-	memset(& data, 0, sizeof(struct hash));
+  memset(& data, 0, sizeof(struct hash));
 
-	set(& rc, "password", passwordmd5);
+  set(& rc, "password", passwordmd5);
 
-	/* escape username for URL */
-	encode(username, & encuser);
+  /* escape username for URL */
+  encode(username, & encuser);
 
-	/* put handshake URL together and fetch initial data from server */
-	snprintf(url, sizeof(url), fmt, encuser, passwordmd5);
-	free(encuser);
+  /* put handshake URL together and fetch initial data from server */
+  snprintf(url, sizeof(url), fmt, encuser, passwordmd5);
+  free(encuser);
 
-	response = fetch(url, NULL, NULL, NULL);
-	if(!response) {
-		fputs("No response.\n", stderr);
-		return 0;
-	}
+  response = NULL; //fetch(url, NULL, NULL, NULL);
+  if(!response) {
+    fputs("No response.\n", stderr);
+    return 0;
+  }
 
-	while(response[i]) {
-		char key[64] = { 0 }, val[256] = { 0 };
-		sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
-		set(& data, key, val);
-		free(response[i++]);
-	}
-	free(response);
+  while(response[i]) {
+    char key[64] = { 0 }, val[256] = { 0 };
+    sscanf(response[i], "%63[^=]=%255[^\r\n]", key, val);
+    set(& data, key, val);
+    free(response[i++]);
+  }
+  free(response);
 
-	session = value(& data, "session");
-	if(!session || !strcmp(session, "FAILED")) {
-		fputs("Authentication failed.\n", stderr);
-		unset(& data, "session");
-		return 0;
-	}
+  session = value(& data, "session");
+  if(!session || !strcmp(session, "FAILED")) {
+    fputs("Authentication failed.\n", stderr);
+    unset(& data, "session");
+    return 0;
+  }
 
-	return !0;
+  return !0;
 }
 
 
@@ -114,9 +106,9 @@ int station(const char * stationURL) {
   if(playfork && haskey(& rc, "delay-change")) {
     if(nextstation) {
       /*
-        Cancel station change if url is empty or equal to the current
-        station.
-      */
+         Cancel station change if url is empty or equal to the current
+         station.
+         */
       free(nextstation);
       nextstation = NULL;
 
@@ -183,7 +175,7 @@ int station(const char * stationURL) {
      station and we request it using the good old /adjust.php URL.
      If it's not a regular stream, the reply of this request already is
      a XSPF playlist we have to parse.
-   */
+     */
   if(regular) {
     fmt = "http://ws.audioscrobbler.com/radio/adjust.php?session=%s&url=%s";
   }
@@ -199,7 +191,7 @@ int station(const char * stationURL) {
   free(encodedURL);
   free(completeURL);
 
-  if(!(response = fetch(url, NULL, NULL, NULL)))
+  if(!(response = NULL)) //fetch(url, NULL, NULL, NULL)))
     return 0;
 
   if(regular) {
@@ -236,7 +228,8 @@ int station(const char * stationURL) {
 
     freelist(& playlist);
 
-    if(!parsexspf(& playlist, xml))
+    //if(!parsexspf(& playlist, xml))
+    if(NULL)
       retval = 0;
 
     free(xml);
@@ -261,10 +254,10 @@ int station(const char * stationURL) {
 
 
 /*
-  Takes pointer to a playlist, forks off a playback process and tries to play
-  the next track in the playlist. If there's already a playback process, it's
-  killed first (which means the currently played track is skipped).
-*/
+   Takes pointer to a playlist, forks off a playback process and tries to play
+   the next track in the playlist. If there's already a playback process, it's
+   killed first (which means the currently played track is skipped).
+   */
 int play(struct playlist * list) {
   unsigned i;
   int pipefd[2];
@@ -310,9 +303,9 @@ int play(struct playlist * list) {
 
       if(fd != NULL) {
         /*
-          If there was an error, tell the main process about it by
-          sending SIGUSR2.
-        */
+           If there was an error, tell the main process about it by
+           sending SIGUSR2.
+           */
         if(!playback(fd, pipefd[0]))
           kill(getppid(), SIGUSR2);
 
@@ -336,76 +329,76 @@ int play(struct playlist * list) {
 
 
 unsigned resolve_artist(const char * name) {
-	unsigned artist_id = 0;
-	char * response = fetch(
-		makeurl("http://www.last.fm/ajax/getResource?type=artist&name=%s", name),
-		NULL, NULL, NULL
-	);
+  unsigned artist_id = 0;
+  char * response = fetch(
+      makeurl("http://www.last.fm/ajax/getResource?type=artist&name=%s", name),
+      NULL, NULL, NULL
+      );
 
-	debug("response=<\n%s\n>\n", response);
+  debug("response=<\n%s\n>\n", response);
 
-	if(response != NULL) {
-		struct hash h = { 0, NULL };
-		json_value * json;
+  if(response != NULL) {
+    struct hash h = { 0, NULL };
+    json_value * json;
 
-		assert((json = json_parse(response)) != NULL);
+    assert((json = json_parse(response)) != NULL);
 
-		json_hash(json, & h, NULL);
+    json_hash(json, & h, NULL);
 
-		if(haskey(& h, "resource.id"))
-			artist_id = atol(value(& h, "resource.id"));
+    if(haskey(& h, "resource.id"))
+      artist_id = atol(value(& h, "resource.id"));
 
-		json_value_free(json);
-		empty(& h);
-	}
+    json_value_free(json);
+    empty(& h);
+  }
 
-	free(response);
+  free(response);
 
-	return artist_id;
+  return artist_id;
 }
 
 
 void expand_station_url(char ** station_url) {
-	debug("checking url: %s\n", * station_url);
+  debug("checking url: %s\n", * station_url);
 
-	/* Allow URLs like artists/name1*name2*name3 to be entered and replace the
-	 * names with artist ids. */
-	if(strncmp(* station_url, "lastfm://artists/", 17) == 0) {
-		debug("expanding multiple artists radio\n");
+  /* Allow URLs like artists/name1*name2*name3 to be entered and replace the
+   * names with artist ids. */
+  if(strncmp(* station_url, "lastfm://artists/", 17) == 0) {
+    debug("expanding multiple artists radio\n");
 
-		unsigned name_count = 0, n;
-		char ** names = split((* station_url) + 17, "*", & name_count);
-		size_t url_length = 17;
+    unsigned name_count = 0, n;
+    char ** names = split((* station_url) + 17, "*", & name_count);
+    size_t url_length = 17;
 
-		* station_url = realloc(* station_url, 18);
-		sprintf(* station_url, "lastfm://artists/");
+    * station_url = realloc(* station_url, 18);
+    sprintf(* station_url, "lastfm://artists/");
 
-		for(n = 0; n < name_count; ++n) {
-			unsigned artist_id = resolve_artist(names[n]);
+    for(n = 0; n < name_count; ++n) {
+      unsigned artist_id = resolve_artist(names[n]);
 
-			debug("artist <%s> id <%d>\n", names[n], artist_id);
+      debug("artist <%s> id <%d>\n", names[n], artist_id);
 
-			if(artist_id) {
-				char id_string[32] = { 0, };
+      if(artist_id) {
+        char id_string[32] = { 0, };
 
-				snprintf(id_string, sizeof(id_string), "%d", artist_id);
+        snprintf(id_string, sizeof(id_string), "%d", artist_id);
 
-				url_length += strlen(id_string) + n;
+        url_length += strlen(id_string) + n;
 
-				* station_url = realloc(* station_url, url_length + 1);
+        * station_url = realloc(* station_url, url_length + 1);
 
-				if(n > 0)
-					strcat(* station_url, ",");
+        if(n > 0)
+          strcat(* station_url, ",");
 
-				strcat(* station_url, id_string);
-			}
-		}
+        strcat(* station_url, id_string);
+      }
+    }
 
-		purge(names);
+    purge(names);
 
-		debug("new station: %s\n", * station_url);
-	}
-	else {
-		debug("nothing to expand\n");
-	}
+    debug("new station: %s\n", * station_url);
+  }
+  else {
+    debug("nothing to expand\n");
+  }
 }
