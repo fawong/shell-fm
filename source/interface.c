@@ -152,14 +152,7 @@ void handle_keyboard_input() {
       break;
 
     case 'a':
-      result = 0;
-      //result = xmlrpc(
-      //  "addTrackToUserPlaylist", "ss",
-      //  value(& track, "creator"),
-      //  value(& track, "title")
-      //);
-
-      puts(result ? "Added to playlist." : "Sorry, failed.");
+      puts("Adding tracks to playlists currently not implemented.");
       break;
 
     case 'P':
@@ -289,7 +282,6 @@ void handle_keyboard_input() {
       puts("Configuration reloaded");
       break;
   }
-
 }
 
 int fetchkey(unsigned nsec) {
@@ -549,7 +541,9 @@ int rate(int rating) {
 
     snprintf(full_method, sizeof(full_method), "track.%s", method);
 
-    response = rest(full_method, & p);
+		response = rest(full_method, & p);
+		if(!response)
+			return 0;
 
     error = error_message(response);
 
@@ -687,7 +681,7 @@ int volume_down() {
   return set_volume(volume - 1);
 }
 
-void mute() {
+void mute(void) {
   if(muted) {
     set_volume(saved_volume);
     muted = 0;

@@ -99,25 +99,61 @@ int main(int argc, char ** argv) {
     set(& rc, "proxy", proxy);
 
 
-  /* Parse through command line options. */
-  while(-1 != (option = getopt(argc, argv, ":dbhqi:p:D:y:")))
-    switch(option) {
-      case 'd': /* Daemonize. */
-        background = !background;
-        break;
+	/* Parse through command line options. */
+	while(-1 != (option = getopt(argc, argv, ":dbhqi:p:D:y:Y:")))
+		switch(option) {
+			case 'd': /* Daemonize. */
+				background = !background;
+				break;
 
       case 'i': /* IP to bind network interface to. */
         set(& rc, "bind", optarg);
         break;
 
-      case 'p': /* Port to listen on. */
-        if(atoi(optarg))
-          set(& rc, "port", optarg);
-        else {
-          fputs("Invalid port.\n", stderr);
-          ++nerror;
-        }
-        break;
+			case 'p': /* Port to listen on. */
+				if(atoi(optarg))
+					set(& rc, "port", optarg);
+				else {
+					fputs("Invalid port.\n", stderr);
+					++nerror;
+				}
+				break;
+
+			case 'b': /* Batch mode */
+				batch = !0;
+				break;
+
+			case 'D': /* Path to audio device file. */
+				set(& rc, "device", optarg);
+				break;
+
+			case 'y': /* Proxy address. */
+				set(& rc, "proxy", optarg);
+				break;
+
+			case 'Y': /* SOCKS proxy address. */
+				set(& rc, "socks-proxy", optarg);
+				break;
+
+			case 'q': /* Quiet mode. */
+				quiet = !quiet;
+				break;
+
+			case 'h': /* Print help text and exit. */
+				help(argv[0], 0);
+				break;
+
+			case ':':
+				fprintf(stderr, "Missing argument for option -%c.\n\n", optopt);
+				++nerror;
+				break;
+
+			case '?':
+			default:
+				fprintf(stderr, "Unknown option -%c.\n", optopt);
+				++nerror;
+				break;
+		}
 
       case 'b': /* Batch mode */
         batch = !0;
@@ -558,24 +594,25 @@ int main(int argc, char ** argv) {
 
 
 static void help(const char * argv0, int error_code) {
-  fprintf(stderr,
-    "Shell.FM v" PACKAGE_VERSION ", (C) 2006-2010 by Jonas Kramer\n"
-    "Published under the terms of the GNU General Public License (GPL).\n"
-    "\n"
-    "%s [options] [lastfm://url]\n"
-    "\n"
-    "  -d        daemon mode.\n"
-    "  -q        quiet mode.\n"
-    "  -i        address to listen on.\n"
-    "  -p        port to listen on.\n"
-    "  -b        batch mode.\n"
-    "  -D        device to play on.\n"
-    "  -y        proxy url to connect through.\n"
-    "  -h        this help.\n",
-    argv0
-  );
+	fprintf(stderr,
+		"Shell.FM v" PACKAGE_VERSION ", (C) 2006-2010 by Jonas Kramer\n"
+		"Published under the terms of the GNU General Public License (GPL).\n"
+		"\n"
+		"%s [options] [lastfm://url]\n"
+		"\n"
+		"  -d        daemon mode.\n"
+		"  -q        quiet mode.\n"
+		"  -i        address to listen on.\n"
+		"  -p        port to listen on.\n"
+		"  -b        batch mode.\n"
+		"  -D        device to play on.\n"
+		"  -y        proxy url to connect through.\n"
+		"  -Y        SOCKS proxy url to connect through.\n"
+		"  -h        this help.\n",
+		argv0
+	);
 
-  exit(error_code);
+	exit(error_code);
 }
 
 
